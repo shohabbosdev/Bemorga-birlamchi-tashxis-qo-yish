@@ -1,22 +1,102 @@
 [
     {
-        "familiya": "Иванов",
-        "ism": "Юрий",
-        "sharifi": "Александрович"
-    },
-    {
-        "familiya": "Петров",
-        "ism": "Василий",
-        "sharifi": "Иванович"
-    },
-    {
-        "familiya": "Сидоров",
-        "ism": "Михаил",
-        "sharifi": "Сергеевич"
-    },
-    {
-        "familiya":"Saidov",
+        "familiya": "Saidov",
         "ism": "Sardor",
         "sharifi": "Malik o'g'li"
+    },
+    {
+        "familiya": "Rahimov",
+        "ism": "Farrux",
+        "sharifi": "Javlon o'g'li"
+    },
+    {
+        "familiya": "Xolmatova",
+        "ism": "Laylo",
+        "sharifi": "Rustam qizi"
+    },
+    {
+        "familiya": "Tursunov",
+        "ism": "Shaxzod",
+        "sharifi": "Baxtiyor o'g'li"
+    },
+    {
+        "familiya": "Abdullayeva",
+        "ism": "Dilnoza",
+        "sharifi": "Toshpo'lat qizi"
+    },
+    {
+        "familiya": "Yusupov",
+        "ism": "Bekzod",
+        "sharifi": "Mansur o'g'li"
+    },
+    {
+        "familiya": "Jumaboyev",
+        "ism": "Komiljon",
+        "sharifi": "Sobir o'g'li"
+    },
+    {
+        "familiya": "Davlatova",
+        "ism": "Nigora",
+        "sharifi": "Orif qizi"
+    },
+    {
+        "familiya": "Xudoyberdiyev",
+        "ism": "Shuhrat",
+        "sharifi": "Aziz o'g'li"
+    },
+    {
+        "familiya": "Shirinova",
+        "ism": "Shohista",
+        "sharifi": "Ali qizi"
+    },
+    {
+        "familiya": "Karimov",
+        "ism": "Otabek",
+        "sharifi": "Sanjar o'g'li"
+    },
+    {
+        "familiya": "Ibragimova",
+        "ism": "Sevinch",
+        "sharifi": "Shavkat qizi"
+    },
+    {
+        "familiya": "Omonov",
+        "ism": "Dilshod",
+        "sharifi": "Orifjon o'g'li"
+    },
+    {
+        "familiya": "Xaydarov",
+        "ism": "Ulug'bek",
+        "sharifi": "Bekmurod o'g'li"
+    },
+    {
+        "familiya": "Nazarova",
+        "ism": "Madina",
+        "sharifi": "Anvar qizi"
+    },
+    {
+        "familiya": "Sobirov",
+        "ism": "Azizbek",
+        "sharifi": "Ilhom o'g'li"
+    },
+    {
+        "familiya": "Qodirova",
+        "ism": "Mehriniso",
+        "sharifi": "Toxir qizi"
+    },
+    {
+        "familiya": "Bozorov",
+        "ism": "Kamol",
+        "sharifi": "Sherali o'g'li"
+    },
+    {
+        "familiya": "Eshmatova",
+        "ism": "Muqaddas",
+        "sharifi": "Akrom qizi"
+    },
+    {
+        "familiya": "Rahmonov",
+        "ism": "Sarvar",
+        "sharifi": "Abdulla o'g'li"
     }
 ]
