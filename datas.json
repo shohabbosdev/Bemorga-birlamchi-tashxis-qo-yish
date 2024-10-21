@@ -1,0 +1,22 @@
+[
+    {
+        "familiya": "Иванов",
+        "ism": "Юрий",
+        "sharifi": "Александрович"
+    },
+    {
+        "familiya": "Петров",
+        "ism": "Василий",
+        "sharifi": "Иванович"
+    },
+    {
+        "familiya": "Сидоров",
+        "ism": "Михаил",
+        "sharifi": "Сергеевич"
+    },
+    {
+        "familiya":"Saidov",
+        "ism": "Sardor",
+        "sharifi": "Malik o'g'li"
+    }
+]
