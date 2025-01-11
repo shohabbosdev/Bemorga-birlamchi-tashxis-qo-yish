@@ -1,6 +1,2 @@
-<<<<<<< HEAD
 streamlit
 sqlite-database
-=======
-streamlit
->>>>>>> e1d4b3b9394cdc4bf2eff429adeb7665b55d6343
