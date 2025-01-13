@@ -1,376 +1,241 @@
-import json
-import streamlit as st
-
-st.set_page_config(page_title="Экспертная система ранней диагностики", page_icon="💊", layout="wide", initial_sidebar_state="expanded")
-
-if 'authenticated' not in st.session_state or not st.session_state.authenticated:
-    st.switch_page("1_💠_Dashboard.py")
-    st.stop()
-    
-# Define Symptom and Illness Classes
-class Symptom:
-    def __init__(self, name, id_code):
-        self.name = name
-        self.id_code = id_code
-
-class Illness:
-    def __init__(self, name):
-        self.name = name
-        self.symptoms = {}
-    
-    def add_symptom(self, symptom, reference):
-        self.symptoms[symptom.name] = reference
-
-class Patient:
-    def __init__(self, name):
-        self.name = name
-        self.symptoms = {}
-    
-    def add_symptom(self, symptom, value):
-        self.symptoms[symptom] = value
-
-class Calculation:
-    def __init__(self, patient):
-        self.patient = patient
-        self.illnesses = []
-    
-    def add_illness(self, illness):
-        self.illnesses.append(illness)
-    
-    def calculate(self):
-        results = {}
-        for illness in self.illnesses:
-            match_count = 0
-            for symptom, reference in illness.symptoms.items():
-                if symptom in self.patient.symptoms:
-                    patient_value = self.patient.symptoms[symptom]
-                    if patient_value == reference:
-                        match_count += 1
-            score = (match_count / len(illness.symptoms)) * 100
-            results[illness.name] = score
-        return results
 import sqlite3
-conn = sqlite3.connect('data/userdata.db')
+import streamlit as st
+import pandas as pd
+from io import BytesIO
 
-# Load data (familiya, ism, shariflar)
-cursor = conn.execute("SELECT id, fish from USERS")
+# Streamlit sahifa sozlamalari
+st.set_page_config(page_title="Erta tashxislashning ekspert tizimi", page_icon="💊", layout="wide", initial_sidebar_state="expanded")
 
+# SQLite ma'lumotlar bazasiga ulanish (maxsus timeout bilan)
+def get_connection():
+    return sqlite3.connect('data/diagnosis_data.db', timeout=10)
 
-# Extract full names from JSON
-patient_names = [row[1] for row in cursor]  
-
-# UI for patient diagnosis
-st.title("💥 Экспертная система ранней диагностики")
-
-selected_name = st.selectbox("Выберите пациента", patient_names)
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["💥 Экспертная система ранней диагностики", "🥼 Атака артрита", "🧪 Тесты на РФ и АЦЦП","📉 Показательные Анализы", "📄 Переносимые процессы и\или болезни"])
-
-with tab1:
-    with st.container(border=True):
-        # Patient information (select from JSON file)
-        patient = Patient(selected_name)
-        # Checkbox inputs for each symptom
-        st.subheader("Выберите симптомы пациента")
-        symptoms_list = [
-            Symptom("1 Крупный сустав (покраснение)", "x1"),
-            Symptom("2-10 крупных суставов", "x2"),
-            Symptom("1-3 мелких сустава (без учета крупных)", "x3"),
-            Symptom("4-10 мелких сустава (без учета крупных)", "x4"),
-            Symptom(">10 суставов (как минимум 1 мелкий сустав)", "x5"),
-            Symptom("Вовлечение первого плюснефалангового сустава", "x6"),
-            Symptom("Энтезопатии (боль в пятке, боль в проекции большеберцового бугра)", "x7"),
-            Symptom("Воспалительная боль в нижнем отделе спины: сакроилеит", "x8"),
-            Symptom("Воспалительная боль в нижнем отделе спины: спондилит", "x9"),
-            Symptom("Воспаление связок и сухожилий в месте их прикрепления к седалищному бугру", "x10"),
-        ]
-
-        # Checkbox for each symptom
-        for symptom in symptoms_list:
-            selected = st.checkbox(symptom.name)
-            patient.add_symptom(symptom.name, "+" if selected else "-")
-
-        # Define Illnesses and their reference symptoms
-        illness1 = Illness("Ревматоидный артрит")
-        illness2 = Illness("Подагрический артрит")
-        illness3 = Illness("Реактивный артрит")
-
-        # Add symptoms to the illnesses based on reference answers
-        illness1.add_symptom(symptoms_list[0], "-")
-        illness1.add_symptom(symptoms_list[1], "+")
-        illness1.add_symptom(symptoms_list[2], "+")
-        illness1.add_symptom(symptoms_list[3], "+")
-        illness1.add_symptom(symptoms_list[4], "+")
-        illness1.add_symptom(symptoms_list[5], "-")
-        illness1.add_symptom(symptoms_list[6], "-")
-        illness1.add_symptom(symptoms_list[7], "-")
-        illness1.add_symptom(symptoms_list[8], "-")
-        illness1.add_symptom(symptoms_list[9], "-")
-
-        illness2.add_symptom(symptoms_list[0], "+")
-        illness2.add_symptom(symptoms_list[1], "-")
-        illness2.add_symptom(symptoms_list[2], "-")
-        illness2.add_symptom(symptoms_list[3], "-")
-        illness2.add_symptom(symptoms_list[4], "-")
-        illness2.add_symptom(symptoms_list[5], "+")
-        illness2.add_symptom(symptoms_list[6], "-")
-        illness2.add_symptom(symptoms_list[7], "-")
-        illness2.add_symptom(symptoms_list[8], "-")
-        illness2.add_symptom(symptoms_list[9], "-")
-
-        illness3.add_symptom(symptoms_list[0], "-")
-        illness3.add_symptom(symptoms_list[1], "-")
-        illness3.add_symptom(symptoms_list[2], "-")
-        illness3.add_symptom(symptoms_list[3], "-")
-        illness3.add_symptom(symptoms_list[4], "-")
-        illness3.add_symptom(symptoms_list[5], "-")
-        illness3.add_symptom(symptoms_list[6], "+")
-        illness3.add_symptom(symptoms_list[7], "+")
-        illness3.add_symptom(symptoms_list[8], "+")
-        illness3.add_symptom(symptoms_list[9], "+")
-
-        # Perform calculation
-        calc = Calculation(patient)
-        calc.add_illness(illness1)
-        calc.add_illness(illness2)
-        calc.add_illness(illness3)
+# Jadvalni yaratish
+def create_tables():
+    conn = get_connection()
+    cursor = conn.cursor()
     
-with tab2:
-    st.header("🥼 Атака артрита")
-    with st.container(border=True):
-        # Patient information (select from JSON file)
-        patient = Patient(selected_name)
-        # Checkbox inputs for each symptom
-        st.subheader("Выберите симптомы пациента")
-        symptoms_list = [
-            Symptom("Достижение максимальных проявлений артрита во время атаки за один день", "x1"),
-            Symptom("Одна или более атак артрита в анамнезе", "x2"),
-            Symptom("Периферический артрит (несимметричный, олигоартрит)", "x3")
-        ]
+    cursor.execute('''CREATE TABLE IF NOT EXISTS diseases (
+                        id INTEGER PRIMARY KEY, 
+                        name TEXT UNIQUE)''')
+    
+    cursor.execute('''CREATE TABLE IF NOT EXISTS symptom_groups (
+                        id INTEGER PRIMARY KEY, 
+                        disease_id INTEGER, 
+                        group_name TEXT, 
+                        FOREIGN KEY(disease_id) REFERENCES diseases(id),
+                        UNIQUE(disease_id, group_name))''')
+    
+    cursor.execute('''CREATE TABLE IF NOT EXISTS symptoms (
+                        id INTEGER PRIMARY KEY, 
+                        group_id INTEGER, 
+                        symptom_name TEXT, 
+                        FOREIGN KEY(group_id) REFERENCES symptom_groups(id))''')
+    
+    cursor.execute('''CREATE TABLE IF NOT EXISTS disease_symptoms (
+                        id INTEGER PRIMARY KEY, 
+                        disease_id INTEGER, 
+                        symptom_id INTEGER, 
+                        value INTEGER,
+                        FOREIGN KEY(disease_id) REFERENCES diseases(id),
+                        FOREIGN KEY(symptom_id) REFERENCES symptoms(id),
+                        UNIQUE(disease_id, symptom_id))''')
+    
+    conn.commit()
+    conn.close()
 
-        # Checkbox for each symptom
-        for symptom in symptoms_list:
-            selected = st.checkbox(symptom.name)
-            patient.add_symptom(symptom.name, "+" if selected else "-")
+# Jadval yaratish funksiyasini ishga tushirish
+create_tables()
 
-        # Define Illnesses and their reference symptoms
-        illness1 = Illness("Ревматоидный артрит")
-        illness2 = Illness("Подагрический артрит")
-        illness3 = Illness("Реактивный артрит")
+# Kasalliklarni va simptomlarni o'qish
+def get_diseases():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, name FROM diseases")
+    diseases = cursor.fetchall()
+    conn.close()
+    return diseases
 
-        # Add symptoms to the illnesses based on reference answers
-        illness1.add_symptom(symptoms_list[0], "+")
-        illness1.add_symptom(symptoms_list[1], "+")
-        illness1.add_symptom(symptoms_list[2], "-")
+def get_symptom_groups(disease_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, group_name FROM symptom_groups WHERE disease_id=?", (disease_id,))
+    groups = cursor.fetchall()
+    conn.close()
+    return groups
 
-        illness2.add_symptom(symptoms_list[0], "+")
-        illness2.add_symptom(symptoms_list[1], "+")
-        illness2.add_symptom(symptoms_list[2], "-")
+def get_symptoms(group_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, symptom_name FROM symptoms WHERE group_id=?", (group_id,))
+    symptoms = cursor.fetchall()
+    conn.close()
+    return symptoms
 
-        illness3.add_symptom(symptoms_list[0], "-")
-        illness3.add_symptom(symptoms_list[1], "-")
-        illness3.add_symptom(symptoms_list[2], "+")
 
-        # Perform calculation
-        calc = Calculation(patient)
-        calc.add_illness(illness1)
-        calc.add_illness(illness2)
-        calc.add_illness(illness3)
+st.markdown("# 💉:rainbow[Kasalliklar bilan ishlash oynasi]")
+
+tabs = st.tabs(["Ma'lumotlarni kiritish", "Ma'lumotlarni tahrirlash", "Excelga eksport qilish"])
+
+with tabs[0]:
+    st.subheader("Kasalliklar va Simptomlarni kiritish")
+    
+    kasalliklar_soni = st.number_input("Nechta kasallik nomini kiritasiz?", 1, 10, 1)
+    kasalliklar_nomlari = [st.text_input(f"{i+1}-Kasallik nomini kiriting", key=f'kasallik_{i}') for i in range(kasalliklar_soni)]
+
+    # Kasalliklar uchun simptomlar guruhi va simptomlarni kiritish
+    symptom_groups = []
+    symptoms = {}
+
+    for i, kasallik in enumerate(kasalliklar_nomlari):
+        if kasallik:
+            st.markdown(f"### {kasallik} uchun simptomlar guruhi kiritish")
+            num_groups = st.number_input(f"{kasallik} uchun simptomlar guruhi sonini kiriting", 0, 5, 1, key=f"num_groups_{i}")
+            groups = []
+            for j in range(num_groups):
+                group_name = st.text_input(f"{j+1}-Simptomlar guruhi nomini kiriting", key=f"group_{i}_{j}")
+                if group_name:
+                    groups.append(group_name)
+                    symptoms[group_name] = st.text_area(f"{group_name} uchun simptomlarni kiriting (vergul bilan ajrating)", key=f"symptoms_{i}_{j}")
+            symptom_groups.append((kasallik, groups))
+
+    # Simptomlarga mos ravishda 0 yoki 1 raqamlarini kiritish
+    symptom_matrix = []
+
+    for kasallik, groups in symptom_groups:
+        for group in groups:
+            symptoms_text = symptoms[group]
+            symptom_list = [symptom.strip() for symptom in symptoms_text.split(',')]
+            
+            # Har bir simptom uchun checkbox (0 yoki 1)
+            for symptom in symptom_list:
+                if symptom:
+                    value = st.checkbox(f"Kasallik: {kasallik} | Guruh: {group} | Simptom: {symptom} mavjudmi?", key=f"value_{kasallik}_{group}_{symptom}")
+                    symptom_matrix.append([kasallik, group, symptom, 1 if value else 0])
+
+    # Saqlash tugmasi
+    saqlash = st.button("Saqlash", disabled=not kasalliklar_nomlari)
+
+    if saqlash:
+        st.write(f"Saqlash muvaffaqiyatli bajarildi. Jami {len(kasalliklar_nomlari)} ta kasallik kiritildi.")
         
-with tab3:
-    st.header("🧪 Тесты на РФ и АЦЦП")
-    with st.container(border=True):
-        # Patient information (select from JSON file)
-        patient = Patient(selected_name)
-        # Checkbox inputs for each symptom
-        st.subheader("Выберите симптомы пациента")
-        symptoms_list = [
-            Symptom("Отрицательны", "x1"),
-            Symptom("Слабо позитивны для РФ или АЦЦП (превысили границу нормы, но менее, чем в 3 раза)", "x2"),
-            Symptom("Высоко позитивны для РФ или АЦЦП (более, чем в 3 раза превысили границу нормы)", "x3")
-        ]
+        # Kasalliklarni va simptomlarni saqlash
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        for kasallik in kasalliklar_nomlari:
+            if kasallik:
+                # Kasallik nomi bazada mavjudligini tekshirish
+                cursor.execute("SELECT id FROM diseases WHERE name=?", (kasallik,))
+                disease_id = cursor.fetchone()
+                
+                if not disease_id:
+                    cursor.execute("INSERT INTO diseases (name) VALUES (?)", (kasallik,))
+                    disease_id = cursor.lastrowid
+                else:
+                    disease_id = disease_id[0]
 
-        # Checkbox for each symptom
-        for symptom in symptoms_list:
-            selected = st.checkbox(symptom.name)
-            patient.add_symptom(symptom.name, "+" if selected else "-")
+                # Har bir kasallik uchun simptomlar guruhi saqlash
+                for group in symptoms:
+                    # Simptomlar guruhi bazada mavjudligini tekshirish
+                    cursor.execute("SELECT id FROM symptom_groups WHERE disease_id=? AND group_name=?", (disease_id, group))
+                    group_id = cursor.fetchone()
+                    
+                    if not group_id:
+                        cursor.execute("INSERT INTO symptom_groups (disease_id, group_name) VALUES (?, ?)", (disease_id, group))
+                        group_id = cursor.lastrowid
+                    else:
+                        group_id = group_id[0]
 
-        # Define Illnesses and their reference symptoms
-        illness1 = Illness("Ревматоидный артрит")
-        illness2 = Illness("Подагрический артрит")
-        illness3 = Illness("Реактивный артрит")
+                        # Har bir simptomni saqlash
+                        for symptom in symptoms[group].split(','):
+                            symptom = symptom.strip()
+                            if symptom:
+                                cursor.execute("INSERT INTO symptoms (group_id, symptom_name) VALUES (?, ?)", (group_id, symptom))
 
-        # Add symptoms to the illnesses based on reference answers
-        illness1.add_symptom(symptoms_list[0], "-")
-        illness1.add_symptom(symptoms_list[1], "+")
-        illness1.add_symptom(symptoms_list[2], "+")
+                # Simptomlar jadvaliga 0 yoki 1 qiymatlarni saqlash
+                data_to_insert = []
+                for kasallik, group, symptom, value in symptom_matrix:
+                    disease_id = cursor.execute("SELECT id FROM diseases WHERE name=?", (kasallik,)).fetchone()
+                    if disease_id:
+                        disease_id = disease_id[0]
+                        group_id = cursor.execute("SELECT id FROM symptom_groups WHERE disease_id=? AND group_name=?", (disease_id, group)).fetchone()
+                        
+                        if group_id:
+                            group_id = group_id[0]
+                            symptom_id = cursor.execute("SELECT id FROM symptoms WHERE group_id=? AND symptom_name=?", (group_id, symptom)).fetchone()
+                            
+                            if symptom_id:
+                                symptom_id = symptom_id[0]
+                                
+                                # Ma'lumotlar bazasida mavjudligini tekshirish va saqlash
+                                cursor.execute("""
+                                    INSERT OR IGNORE INTO disease_symptoms (disease_id, symptom_id, value) 
+                                    VALUES (?, ?, ?)
+                                """, (disease_id, symptom_id, value))
 
-        illness2.add_symptom(symptoms_list[0], "-")
-        illness2.add_symptom(symptoms_list[1], "-")
-        illness2.add_symptom(symptoms_list[2], "-")
+        conn.commit()  # O'zgarishlarni saqlash
+        conn.close()  # Ulanishni yopish
+        st.success("Ma'lumotlar muvaffaqiyatli saqlandi!")
 
-        illness3.add_symptom(symptoms_list[0], "-")
-        illness3.add_symptom(symptoms_list[1], "-")
-        illness3.add_symptom(symptoms_list[2], "-")
+with tabs[1]:
+    st.subheader("Mavjud kasalliklar va simptomlarni tahrirlash yoki o'chirish")
 
-        # Perform calculation
-        calc = Calculation(patient)
-        calc.add_illness(illness1)
-        calc.add_illness(illness2)
-        calc.add_illness(illness3)
+    diseases = get_diseases()
+    kasallik_nomlari = [disease[1] for disease in diseases]
+    selected_disease = st.selectbox("Kasallikni tanlang", kasallik_nomlari)
 
-with tab4:
-    st.header("📉 Показательные Анализы")
-    with st.container(border=True):
-        # Patient information (select from JSON file)
-        patient = Patient(selected_name)
-        # Checkbox inputs for each symptom
-        st.subheader("Выберите симптомы пациента")
-        symptoms_list = [
-            Symptom("Норма по СОЭ ( Скорость оседания эритроцитов) и СРБ (С-реактивный белок)", "x1"),
-            Symptom("Повышение СОЭ или уровня СРБ", "x2"),
-            Symptom("Мочевая кислота >6,0 мг/дл (360 мкмоль/л)", "x3")
-        ]
+    if selected_disease:
+        # Kasallikni tahrirlash
+        new_name = st.text_input(f"{selected_disease} nomini tahrirlash", value=selected_disease)
+        if st.button(f"{selected_disease} nomini yangilash"):
+            if new_name:
+                conn = get_connection()
+                cursor = conn.cursor()
+                cursor.execute("UPDATE diseases SET name=? WHERE name=?", (new_name, selected_disease))
+                conn.commit()
+                conn.close()
+                st.success(f"Kasallik nomi {selected_disease} yangilandi!")
 
-        # Checkbox for each symptom
-        for symptom in symptoms_list:
-            selected = st.checkbox(symptom.name)
-            patient.add_symptom(symptom.name, "+" if selected else "-")
+        # Kasallikni o'chirish
+        if st.button(f"{selected_disease} kasalligini o'chirish"):
+            conn = get_connection()
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM disease_symptoms WHERE disease_id IN (SELECT id FROM diseases WHERE name=?)", (selected_disease,))
+            cursor.execute("DELETE FROM symptom_groups WHERE disease_id IN (SELECT id FROM diseases WHERE name=?)", (selected_disease,))
+            cursor.execute("DELETE FROM symptoms WHERE group_id IN (SELECT id FROM symptom_groups WHERE disease_id IN (SELECT id FROM diseases WHERE name=?))", (selected_disease,))
+            cursor.execute("DELETE FROM diseases WHERE name=?", (selected_disease,))
+            conn.commit()
+            conn.close()
+            st.success(f"{selected_disease} kasalligi muvaffaqiyatli o'chirildi!")
 
-        # Define Illnesses and their reference symptoms
-        illness1 = Illness("Ревматоидный артрит")
-        illness2 = Illness("Подагрический артрит")
-        illness3 = Illness("Реактивный артрит")
+with tabs[2]:
+    st.subheader("Excelga eksport qilish")
 
-        # Add symptoms to the illnesses based on reference answers
-        illness1.add_symptom(symptoms_list[0], "-")
-        illness1.add_symptom(symptoms_list[1], "+")
-        illness1.add_symptom(symptoms_list[2], "-")
+    # Faylni eksport qilish
+    export_to_excel = st.button("Excelga eksport qilish")
 
-        illness2.add_symptom(symptoms_list[0], "-")
-        illness2.add_symptom(symptoms_list[1], "-")
-        illness2.add_symptom(symptoms_list[2], "+")
-
-        illness3.add_symptom(symptoms_list[0], "-")
-        illness3.add_symptom(symptoms_list[1], "-")
-        illness3.add_symptom(symptoms_list[2], "-")
-
-        # Perform calculation
-        calc = Calculation(patient)
-        calc.add_illness(illness1)
-        calc.add_illness(illness2)
-        calc.add_illness(illness3)
-
-with tab5:
-    st.header("📄 Переносимые процессы и\или болезни")
-    with st.container(border=True):
-        # Patient information (select from JSON file)
-        patient = Patient(selected_name)
-        # Checkbox inputs for each symptom
-        st.subheader("Выберите симптомы пациента")
-        symptoms_list = [
-            Symptom("Синовит< 6 нед.", "x1"),
-            Symptom("Синовит >=6 нед.", "x2"),
-            Symptom("Гипертензия и/или одна или более кардиоваскулярных болезней", "x3"),
-            Symptom("Конъюнктивит", "x4"),
-            Symptom("Уретрит, простатит", "x5"),
-            Symptom("Эндоскопические признаки поражения кишечника", "x6"),
-            Symptom("Бленнорагическая кератодермия", "x7"),
-            Symptom("Эрозивный круговидный баланит (4–20%)", "x8"),
-            Symptom("Язвы слизистой оболочки полости рта", "x9"),
-            Symptom("Гиперкератоз ногтей", "x10"),
-            Symptom("Нарушения проводимости по данным ЭКГ", "x11"),
-            Symptom("Мужской пол", "x12"),
-            Symptom("Женский пол", "x13")
-        ]
-
-        # Checkbox for each symptom
-        for symptom in symptoms_list:
-            selected = st.checkbox(symptom.name)
-            patient.add_symptom(symptom.name, "+" if selected else "-")
-
-        # Define Illnesses and their reference symptoms
-        illness1 = Illness("Ревматоидный артрит")
-        illness2 = Illness("Подагрический артрит")
-        illness3 = Illness("Реактивный артрит")
-
-        # Add symptoms to the illnesses based on reference answers
-        illness1.add_symptom(symptoms_list[0], "-")
-        illness1.add_symptom(symptoms_list[1], "+")
-        illness1.add_symptom(symptoms_list[2], "-")
-        illness1.add_symptom(symptoms_list[3], "-")
-        illness1.add_symptom(symptoms_list[4], "-")
-        illness1.add_symptom(symptoms_list[5], "-")
-        illness1.add_symptom(symptoms_list[6], "-")
-        illness1.add_symptom(symptoms_list[7], "-")
-        illness1.add_symptom(symptoms_list[8], "-")
-        illness1.add_symptom(symptoms_list[9], "-")
-        illness1.add_symptom(symptoms_list[10], "-")
-        illness1.add_symptom(symptoms_list[11], "-")
-        illness1.add_symptom(symptoms_list[12], "-")
-
-        illness2.add_symptom(symptoms_list[0], "-")
-        illness2.add_symptom(symptoms_list[1], "-")
-        illness2.add_symptom(symptoms_list[2], "+")
-        illness2.add_symptom(symptoms_list[3], "-")
-        illness2.add_symptom(symptoms_list[4], "-")
-        illness2.add_symptom(symptoms_list[5], "-")
-        illness2.add_symptom(symptoms_list[6], "-")
-        illness2.add_symptom(symptoms_list[7], "-")
-        illness2.add_symptom(symptoms_list[8], "-")
-        illness2.add_symptom(symptoms_list[9], "-")
-        illness2.add_symptom(symptoms_list[10], "-")
-        illness2.add_symptom(symptoms_list[11], "-")
-        illness2.add_symptom(symptoms_list[12], "-")
-
-        illness3.add_symptom(symptoms_list[0], "-")
-        illness3.add_symptom(symptoms_list[1], "-")
-        illness3.add_symptom(symptoms_list[2], "-")
-        illness3.add_symptom(symptoms_list[3], "+")
-        illness3.add_symptom(symptoms_list[4], "+")
-        illness3.add_symptom(symptoms_list[5], "+")
-        illness3.add_symptom(symptoms_list[6], "+")
-        illness3.add_symptom(symptoms_list[7], "+")
-        illness3.add_symptom(symptoms_list[8], "+")
-        illness3.add_symptom(symptoms_list[9], "+")
-        illness3.add_symptom(symptoms_list[10], "+")
-        illness3.add_symptom(symptoms_list[11], "-")
-        illness3.add_symptom(symptoms_list[12], "-")
-
-        # Perform calculation
-        calc = Calculation(patient)
-        calc.add_illness(illness1)
-        calc.add_illness(illness2)
-        calc.add_illness(illness3)
-
-
-import random
-with st.sidebar:
-    with st.container(border=True):
-        if st.button("Рассчитать результат", icon="🗝"):
-            results = calc.calculate()
-            st.subheader("Результаты диагностики")
-            for illness, score in results.items():
-                st.metric(label=f"{illness}",value=f"{int(score)}%", delta=f"{random.randrange(-25,25)}",delta_color='normal')
-            # print(results)
-            import pandas as pd
-
-            data_df = pd.DataFrame(
-                {
-                    "percent": list(results.values()),
-                }
-            )
-            st.data_editor(
-                    data_df,
-                    column_config={
-                        "percent": st.column_config.ProgressColumn(
-                            "Результаты процентов",
-                            help="The sales volume in USD",
-                            format='%f',
-                            min_value=0,
-                            max_value=100,
-                        ),
-                    },
-                    hide_index=True,
-                    use_container_width=True,
-                    num_rows='fixed'
-                )
+    if export_to_excel:
+        # Ma'lumotlarni jadvalga yig'ish
+        data = []
+        for kasallik, group, symptom, value in symptom_matrix:
+            data.append([kasallik, group, symptom, value])
+        
+        # DataFrame yaratish
+        df = pd.DataFrame(data, columns=["Kasallik", "Simptomlar Guruhi", "Simptom", "Qiymat (0 yoki 1)"])
+        
+        # Faylga saqlash
+        file_name = "kasalliklar_va_simptomlar.xlsx"
+        
+        # BytesIO obyektiga yozish
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name="Kasalliklar va Simptomlar")
+        
+        # Foydalanuvchiga faylni yuklab olish imkoniyatini yaratish
+        st.download_button(
+            label="Excel faylini yuklab olish",
+            data=output.getvalue(),
+            file_name=file_name,
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
