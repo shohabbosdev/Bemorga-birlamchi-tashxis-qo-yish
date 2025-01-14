@@ -45,17 +45,27 @@ def get_all_data():
         return diseases, groups, symptoms, values
 
 def update_data(table, field, value, condition_field, condition_value):
-    with get_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute(f"UPDATE {table} SET {field}=? WHERE {condition_field}=?", 
-                      (value, condition_value))
-        conn.commit()
+    try:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(f"UPDATE {table} SET {field}=? WHERE {condition_field}=?", 
+                         (value, condition_value))
+            conn.commit()
+        return True
+    except sqlite3.Error as e:
+        st.error(f"Xatolik yuz berdi: {str(e)}")
+        return False
 
 def delete_data(table, condition_field, condition_value):
-    with get_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute(f"DELETE FROM {table} WHERE {condition_field}=?", (condition_value,))
-        conn.commit()
+    try:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(f"DELETE FROM {table} WHERE {condition_field}=?", (condition_value,))
+            conn.commit()
+        return True
+    except sqlite3.Error as e:
+        st.error(f"Xatolik yuz berdi: {str(e)}")
+        return False
 
 # Session state orqali ma'lumotlarni saqlash
 if 'cached_data' not in st.session_state:
@@ -81,15 +91,15 @@ def edit_tab():
             new_name = st.text_input("Yangi nom", value=selected_disease)
             col1, col2 = st.columns(2)
             
-            if col1.button("Yangilash"):
-                update_data("diseases", "name", new_name, "id", disease_dict[selected_disease])
-                refresh_data()
-                st.success("Kasallik nomi yangilandi!")
+            if col1.button("Yangilash", icon='🔄'):
+                if update_data("diseases", "name", new_name, "id", disease_dict[selected_disease]):
+                    refresh_data()
+                    st.success("✅ Kasallik nomi yangilandi!")
             
-            if col2.button("O'chirish"):
-                delete_data("diseases", "id", disease_dict[selected_disease])
-                refresh_data()
-                st.success("Kasallik o'chirildi!")
+            if col2.button("O'chirish", icon='❌'):
+                if delete_data("diseases", "id", disease_dict[selected_disease]):
+                    refresh_data()
+                    st.success("✅ Kasallik o'chirildi!")
 
     elif edit_type == "Simptom guruhlari":
         group_dict = {f"{g[2]} ({g[3]})": g[0] for g in groups}
@@ -99,21 +109,17 @@ def edit_tab():
             new_name = st.text_input("Yangi nom", value=selected_group.split(" (")[0])
             col1, col2 = st.columns(2)
             
-            if col1.button("Yangilash"):
-                update_data("symptom_groups", "group_name", new_name, 
-                          "id", group_dict[selected_group])
-                refresh_data()
-                st.success("Guruh nomi yangilandi!")
+            if col1.button("Yangilash", icon='🔄'):
+                if update_data("symptom_groups", "group_name", new_name, 
+                             "id", group_dict[selected_group]):
+                    refresh_data()
+                    st.success("✅ Guruh nomi yangilandi!")
             
-            if col2.button("O'chirish"):
-                delete_data("symptom_groups", "id", group_dict[selected_group])
-                refresh_data()
-                st.success("Guruh o'chirildi!")
+            if col2.button("O'chirish", icon='❌'):
+                if delete_data("symptom_groups", "id", group_dict[selected_group]):
+                    refresh_data()
+                    st.success("✅ Guruh o'chirildi!")
 
-    # Simptomlar va Qiymatlar uchun kodlar xuddi shunday davom etadi...
-    # (Avvalgi koddan nusxa oling, faqat refresh_data() qo'shing)
-
-# Export funksiyasi (o'zgarishsiz qoladi)
 def export_to_excel():
     diseases, groups, symptoms, values = get_all_data()
     
@@ -167,7 +173,6 @@ def export_to_excel():
 
     return workbook
 
-
 # Asosiy qism
 st.markdown("# 💉:rainbow[Kasalliklar bilan ishlash oynasi]")
 tabs = st.tabs(["Ma'lumotlarni kiritish", "Ma'lumotlarni tahrirlash", "Excelga eksport qilish"])
@@ -176,7 +181,8 @@ with tabs[0]:
     st.markdown("## :rainbow[Kasalliklar va Simptomlarni kiritish]")
     
     kasalliklar_soni = st.number_input("Nechta kasallik nomini kiritasiz?", 1, 10, 1)
-    kasalliklar_nomlari = [st.text_input(f"{i+1}-Kasallik nomini kiriting", key=f'kasallik_{i}') for i in range(kasalliklar_soni)]
+    kasalliklar_nomlari = [st.text_input(f"{i+1}-Kasallik nomini kiriting", key=f'kasallik_{i}') 
+                          for i in range(kasalliklar_soni)]
 
     # Kasalliklar uchun simptomlar guruhi va simptomlarni kiritish
     symptom_groups = []
@@ -185,13 +191,17 @@ with tabs[0]:
     for i, kasallik in enumerate(kasalliklar_nomlari):
         if kasallik:
             st.markdown(f"### {kasallik} uchun simptomlar guruhi kiritish")
-            num_groups = st.number_input(f"{kasallik} uchun simptomlar guruhi sonini kiriting", 0, 5, 1, key=f"num_groups_{i}")
+            num_groups = st.number_input(f"{kasallik} uchun simptomlar guruhi sonini kiriting", 
+                                       0, 5, 1, key=f"num_groups_{i}")
             groups = []
             for j in range(num_groups):
-                group_name = st.text_input(f"{j+1}-Simptomlar guruhi nomini kiriting", key=f"group_{i}_{j}")
+                group_name = st.text_input(f"{j+1}-Simptomlar guruhi nomini kiriting", 
+                                         key=f"group_{i}_{j}")
                 if group_name:
                     groups.append(group_name)
-                    symptoms[group_name] = st.text_area(f"{group_name} uchun simptomlarni kiriting (vergul bilan ajrating)", key=f"symptoms_{i}_{j}")
+                    symptoms[group_name] = st.text_area(
+                        f"{group_name} uchun simptomlarni kiriting (vergul bilan ajrating)", 
+                        key=f"symptoms_{i}_{j}")
             symptom_groups.append((kasallik, groups))
 
     # Simptomlarga mos ravishda 0 yoki 1 raqamlarini kiritish
@@ -200,78 +210,70 @@ with tabs[0]:
     for kasallik, groups in symptom_groups:
         for group in groups:
             symptoms_text = symptoms[group]
-            symptom_list = [symptom.strip() for symptom in symptoms_text.split(',')]
+            symptom_list = [symptom.strip() for symptom in symptoms_text.split(',') if symptom.strip()]
             
-            # Har bir simptom uchun checkbox (0 yoki 1)
             for symptom in symptom_list:
-                if symptom:
-                    value = st.checkbox(f"Kasallik: {kasallik} | Guruh: {group} | Simptom: {symptom} mavjudmi?", key=f"value_{kasallik}_{group}_{symptom}")
-                    symptom_matrix.append([kasallik, group, symptom, 1 if value else 0])
+                value = st.checkbox(
+                    f"Kasallik: {kasallik} | Guruh: {group} | Simptom: {symptom} mavjudmi?",
+                    key=f"value_{kasallik}_{group}_{symptom}")
+                symptom_matrix.append([kasallik, group, symptom, 1 if value else 0])
 
     # Saqlash tugmasi
-    saqlash = st.button("Saqlash", disabled=not kasalliklar_nomlari)
+    saqlash = st.button("Saqlash", disabled=not kasalliklar_nomlari, icon='💡')
 
     if saqlash:
-        st.write(f"Saqlash muvaffaqiyatli bajarildi. Jami {len(kasalliklar_nomlari)} ta kasallik kiritildi.")
-        
-        # Kasalliklarni va simptomlarni saqlash
-        conn = get_connection()
-        cursor = conn.cursor()
-        
-        for kasallik in kasalliklar_nomlari:
-            if kasallik:
-                # Kasallik nomi bazada mavjudligini tekshirish
-                cursor.execute("SELECT id FROM diseases WHERE name=?", (kasallik,))
-                disease_id = cursor.fetchone()
+        try:
+            with get_connection() as conn:
+                cursor = conn.cursor()
                 
-                if not disease_id:
-                    cursor.execute("INSERT INTO diseases (name) VALUES (?)", (kasallik,))
-                    disease_id = cursor.lastrowid
-                else:
-                    disease_id = disease_id[0]
-
-                # Har bir kasallik uchun simptomlar guruhi saqlash
-                for group in symptoms:
-                    # Simptomlar guruhi bazada mavjudligini tekshirish
-                    cursor.execute("SELECT id FROM symptom_groups WHERE disease_id=? AND group_name=?", (disease_id, group))
-                    group_id = cursor.fetchone()
-                    
-                    if not group_id:
-                        cursor.execute("INSERT INTO symptom_groups (disease_id, group_name) VALUES (?, ?)", (disease_id, group))
-                        group_id = cursor.lastrowid
-                    else:
-                        group_id = group_id[0]
-
-                        # Har bir simptomni saqlash
-                        for symptom in symptoms[group].split(','):
-                            symptom = symptom.strip()
-                            if symptom:
-                                cursor.execute("INSERT INTO symptoms (group_id, symptom_name) VALUES (?, ?)", (group_id, symptom))
-
-                # Simptomlar jadvaliga 0 yoki 1 qiymatlarni saqlash
-                data_to_insert = []
-                for kasallik, group, symptom, value in symptom_matrix:
-                    disease_id = cursor.execute("SELECT id FROM diseases WHERE name=?", (kasallik,)).fetchone()
-                    if disease_id:
-                        disease_id = disease_id[0]
-                        group_id = cursor.execute("SELECT id FROM symptom_groups WHERE disease_id=? AND group_name=?", (disease_id, group)).fetchone()
+                for kasallik in kasalliklar_nomlari:
+                    if kasallik:
+                        # Kasallik nomi bazada mavjudligini tekshirish
+                        cursor.execute("SELECT id FROM diseases WHERE name=?", (kasallik,))
+                        disease_record = cursor.fetchone()
                         
-                        if group_id:
-                            group_id = group_id[0]
-                            symptom_id = cursor.execute("SELECT id FROM symptoms WHERE group_id=? AND symptom_name=?", (group_id, symptom)).fetchone()
-                            
-                            if symptom_id:
-                                symptom_id = symptom_id[0]
-                                
-                                # Ma'lumotlar bazasida mavjudligini tekshirish va saqlash
-                                cursor.execute("""
-                                    INSERT OR IGNORE INTO disease_symptoms (disease_id, symptom_id, value) 
-                                    VALUES (?, ?, ?)
-                                """, (disease_id, symptom_id, value))
+                        if not disease_record:
+                            cursor.execute("INSERT INTO diseases (name) VALUES (?)", (kasallik,))
+                            disease_id = cursor.lastrowid
+                        else:
+                            disease_id = disease_record[0]
 
-        conn.commit()  # O'zgarishlarni saqlash
-        conn.close()  # Ulanishni yopish
-        st.success("Ma'lumotlar muvaffaqiyatli saqlandi!")
+                        # Har bir kasallik uchun simptomlar guruhi saqlash
+                        for group in symptoms:
+                            cursor.execute("""
+                                INSERT OR REPLACE INTO symptom_groups (disease_id, group_name) 
+                                VALUES (?, ?)
+                            """, (disease_id, group))
+                            group_id = cursor.lastrowid
+
+                            # Har bir simptomni saqlash
+                            for symptom in symptoms[group].split(','):
+                                symptom = symptom.strip()
+                                if symptom:
+                                    cursor.execute("""
+                                        INSERT OR REPLACE INTO symptoms (group_id, symptom_name) 
+                                        VALUES (?, ?)
+                                    """, (group_id, symptom))
+                                    symptom_id = cursor.lastrowid
+
+                                    # Simptom qiymatini saqlash
+                                    value = next(
+                                        (v[3] for v in symptom_matrix 
+                                         if v[0] == kasallik and v[1] == group and v[2] == symptom),
+                                        0
+                                    )
+                                    cursor.execute("""
+                                        INSERT OR REPLACE INTO disease_symptoms 
+                                        (disease_id, symptom_id, value) 
+                                        VALUES (?, ?, ?)
+                                    """, (disease_id, symptom_id, value))
+
+                conn.commit()
+                st.success("✅ Ma'lumotlar muvaffaqiyatli saqlandi!")
+                refresh_data()
+                
+        except sqlite3.Error as e:
+            st.error(f"Ma'lumotlarni saqlashda xatolik yuz berdi: {str(e)}")
 
 with tabs[1]:
     edit_tab()
@@ -281,16 +283,19 @@ with tabs[2]:
     col1, col2 = st.columns(2)
     
     if col1.button("Excelga eksport qilish", icon='⏳', type='primary'):
-        workbook = export_to_excel()
-        
-        output = BytesIO()
-        workbook.save(output)
-        output.seek(0)
-        
-        col2.download_button(
-            label="Excel faylini yuklab olish",
-            data=output.getvalue(),
-            file_name="kasalliklar_va_simptomlar.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            icon='💾'
-        )
+        try:
+            workbook = export_to_excel()
+            
+            output = BytesIO()
+            workbook.save(output)
+            output.seek(0)
+            
+            col2.download_button(
+                label="Excel faylini yuklab olish",
+                data=output.getvalue(),
+                file_name="kasalliklar_va_simptomlar.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                icon='💾'
+            )
+        except Exception as e:
+            st.error(f"Excel faylini yaratishda xatolik yuz berdi: {str(e)}")
