@@ -71,7 +71,6 @@ def create_tables():
 create_tables()
 
 # Ma'lumotlarni olish funksiyasi
-# Ma'lumotlarni olish funksiyasi
 def get_all_data():
     with get_connection() as conn:
         cursor = conn.cursor()
@@ -96,7 +95,7 @@ def get_all_data():
         # Qiymatlarni olish va to'g'ri filtrlash
         values = cursor.execute(""" 
             SELECT ds.id, ds.disease_id, ds.symptom_id, ds.value,
-                   d.name as disease_name, s.symptom_name, sg.group_name
+                d.name as disease_name, s.symptom_name, sg.group_name
             FROM disease_symptoms ds 
             JOIN diseases d ON ds.disease_id = d.id 
             JOIN symptoms s ON ds.symptom_id = s.id 
@@ -104,8 +103,7 @@ def get_all_data():
         """).fetchall()
         
         return diseases, groups, symptoms, values
-
-
+    
 # Keshni tozalash funksiyasi
 def clear_cache():
     """Ma'lumotlar bazasidan keyin keshni tozalash"""
@@ -118,7 +116,7 @@ def update_data(table, field, value, condition_field, condition_value):
         with get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(f"UPDATE {table} SET {field}=? WHERE {condition_field}=?", 
-                         (value, condition_value))
+                        (value, condition_value))
             conn.commit()
         clear_cache()  # Keshni tozalash
         return True
@@ -185,6 +183,50 @@ if 'cached_data' not in st.session_state:
 def refresh_data():
     st.session_state.cached_data = get_all_data()
 
+# Kasallik va guruhni tekshirish
+def check_and_insert_disease(conn, disease_name):
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM diseases WHERE name=?", (disease_name,))
+    disease_record = cursor.fetchone()
+    if not disease_record:
+        cursor.execute("INSERT INTO diseases (name) VALUES (?)", (disease_name,))
+        conn.commit()
+        return cursor.lastrowid
+    return disease_record[0]
+
+# Guruhni tekshirish va qo'shish
+def check_and_insert_group(conn, disease_id, group_name):
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM symptom_groups WHERE disease_id=? AND group_name=?", (disease_id, group_name))
+    group_record = cursor.fetchone()
+    if not group_record:
+        cursor.execute("INSERT INTO symptom_groups (disease_id, group_name) VALUES (?, ?)", (disease_id, group_name))
+        conn.commit()
+        return cursor.lastrowid
+    return group_record[0]
+
+# Simptomni tekshirish va qo'shish
+def check_and_insert_symptom(conn, group_id, symptom_name):
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM symptoms WHERE group_id=? AND symptom_name=?", (group_id, symptom_name))
+    symptom_record = cursor.fetchone()
+    if not symptom_record:
+        cursor.execute("INSERT INTO symptoms (group_id, symptom_name) VALUES (?, ?)", (group_id, symptom_name))
+        conn.commit()
+        return cursor.lastrowid
+    return symptom_record[0]
+
+# Qiymatlarni saqlash
+def save_symptom_value(conn, disease_id, symptom_id, value):
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM disease_symptoms WHERE disease_id=? AND symptom_id=?", (disease_id, symptom_id))
+    existing_value = cursor.fetchone()
+    if existing_value:
+        cursor.execute("UPDATE disease_symptoms SET value=? WHERE disease_id=? AND symptom_id=?", (value, disease_id, symptom_id))
+    else:
+        cursor.execute("INSERT INTO disease_symptoms (disease_id, symptom_id, value) VALUES (?, ?, ?)", (disease_id, symptom_id, value))
+    conn.commit()
+
 # Tahrirlash oynasi
 def edit_tab():
     st.markdown("## :rainbow[Ma'lumotlarni tahrirlash]")
@@ -207,12 +249,12 @@ def edit_tab():
         if selected_disease:
             disease_id = disease_dict[selected_disease]
             new_name = st.text_input("Yangi kasallik nomini kiriting", value=selected_disease)
-            if st.button("Yangilash", key="update_disease"):
+            if st.button("Yangilash", key="update_disease", icon='🔄', use_container_width=True):
                 if update_data("diseases", "name", new_name, "id", disease_id):
                     st.success("✅ Kasallik nomi yangilandi!")
 
             # Kasallikni o'chirish
-            if st.button("O'chirish", key="delete_disease"):
+            if st.button("O'chirish", key="delete_disease", type='primary', icon='❌', use_container_width=True):
                 if delete_data("diseases", "id", disease_id):
                     st.success("✅ Kasallik o'chirildi!")
         
@@ -221,9 +263,7 @@ def edit_tab():
         if st.button("Kasallik qo'shish"):
             if new_disease_name:
                 with get_connection() as conn:
-                    cursor = conn.cursor()
-                    cursor.execute("INSERT INTO diseases (name) VALUES (?)", (new_disease_name,))
-                    conn.commit()
+                    disease_id = check_and_insert_disease(conn, new_disease_name)
                 st.success(f"✅ {new_disease_name} kasalligi qo'shildi!")
 
     elif edit_type == "Simptom guruhlari":
@@ -239,12 +279,12 @@ def edit_tab():
         if selected_group:
             group_id = group_dict[selected_group]
             new_name = st.text_input("Yangi guruh nomini kiriting", value=selected_group)
-            if st.button("Yangilash", key="update_group"):
+            if st.button("Yangilash", key="update_group",icon='🔄', use_container_width=True):
                 if update_data("symptom_groups", "group_name", new_name, "id", group_id):
                     st.success("✅ Simptom guruhi nomi yangilandi!")
 
             # Simptom guruhini o'chirish
-            if st.button("O'chirish", key="delete_group"):
+            if st.button("O'chirish", key="delete_group", type='primary', icon='❌', use_container_width=True):
                 if delete_data("symptom_groups", "id", group_id):
                     st.success("✅ Simptom guruhi o'chirildi!")
         
@@ -253,10 +293,8 @@ def edit_tab():
         if st.button("Simptom guruhi qo'shish"):
             if new_group_name:
                 with get_connection() as conn:
-                    cursor = conn.cursor()
-                    cursor.execute("INSERT INTO symptom_groups (disease_id, group_name) VALUES (?, ?)", 
-                                   (disease_id, new_group_name))
-                    conn.commit()
+                    disease_id = st.selectbox("Kasallikni tanlang", [d[1] for d in diseases])
+                    group_id = check_and_insert_group(conn, disease_id, new_group_name)
                 st.success(f"✅ {new_group_name} guruh qo'shildi!")
 
     elif edit_type == "Simptomlar":
@@ -271,12 +309,12 @@ def edit_tab():
         if selected_symptom:
             symptom_id = symptom_dict[selected_symptom]
             new_name = st.text_input("Yangi simptom nomini kiriting", value=selected_symptom)
-            if st.button("Yangilash", key="update_symptom"):
+            if st.button("Yangilash", key="update_symptom", icon='🔄', use_container_width=True):
                 if update_data("symptoms", "symptom_name", new_name, "id", symptom_id):
                     st.success("✅ Simptom nomi yangilandi!")
 
             # Simptomni o'chirish
-            if st.button("O'chirish", key="delete_symptom"):
+            if st.button("O'chirish", key="delete_symptom", type='primary', icon='❌', use_container_width=True):
                 if delete_data("symptoms", "id", symptom_id):
                     st.success("✅ Simptom o'chirildi!")
         
@@ -285,33 +323,41 @@ def edit_tab():
         if st.button("Simptom qo'shish"):
             if new_symptom_name:
                 with get_connection() as conn:
-                    cursor = conn.cursor()
-                    cursor.execute("INSERT INTO symptoms (group_id, symptom_name) VALUES (?, ?)", 
-                                   (group_id, new_symptom_name))
-                    conn.commit()
+                    group_id = st.selectbox("Simptom guruhini tanlang", [g[2] for g in groups])
+                    symptom_id = check_and_insert_symptom(conn, group_id, new_symptom_name)
                 st.success(f"✅ {new_symptom_name} simptom qo'shildi!")
 
     elif edit_type == "Qiymatlar":
         st.markdown("### Qiymatlarni qo'shish, o'zgartirish yoki o'chirish")
-
-        # Qiymatlarni olish
-        value_dict = {f"{value[4]} ({value[5]})": value[0] for value in values}
-
+        
+        values_dict = {f"{v[4]} - {v[5]} ({v[6]})": v[0] for v in values}
+        
         # Qiymatni tanlash
-        selected_value = st.selectbox("Tahrir qilmoqchi bo'lgan qiymatni tanlang", list(value_dict.keys()))
+        selected_value = st.selectbox("Tahrir qilmoqchi bo'lgan qiymatni tanlang", list(values_dict.keys()))
         
         # Qiymatni yangilash
         if selected_value:
-            value_id = value_dict[selected_value]
+            value_id = values_dict[selected_value]
             new_value = st.number_input("Yangi qiymatni kiriting", value=1, min_value=0, max_value=1)
-            if st.button("Yangilash", key="update_value"):
-                if update_symptom_value(value_id, new_value):
+            if st.button("Yangilash", key="update_value", icon='🔄', use_container_width=True):
+                if update_data("disease_symptoms", "value", new_value, "id", value_id):
                     st.success("✅ Qiymat yangilandi!")
 
-        # Qiymatni o'chirish
-        if st.button("Qiymatni o'chirish", key="delete_value"):
-            if delete_data("disease_symptoms", "id", value_id):
-                st.success("✅ Qiymat o'chirildi!")
+            # Qiymatni o'chirish
+            if st.button("O'chirish", key="delete_value", type='primary', icon='❌', use_container_width=True):
+                if delete_data("disease_symptoms", "id", value_id):
+                    st.success("✅ Qiymat o'chirildi!")
+        
+        # Qiymatni qo'shish
+        new_value = st.number_input("Yangi qiymatni kiriting", value=1, min_value=0, max_value=1, key='new_value')
+        if st.button("Qiymat qo'shish"):
+            if new_value:
+                with get_connection() as conn:
+                    disease_id = st.selectbox("Kasallikni tanlang", [d[1] for d in diseases])
+                    symptom_id = st.selectbox("Simptomni tanlang", [s[2] for s in symptoms])
+                    save_symptom_value(conn, disease_id, symptom_id, new_value)
+                st.success(f"✅ Qiymat qo'shildi!")
+
 
 # Asosiy qism
 st.markdown("# 💉:rainbow[Kasalliklar bilan ishlash oynasi]")
@@ -321,44 +367,47 @@ with tabs[0]:
     st.markdown("## :rainbow[Kasalliklar va Simptomlarni kiritish]") 
     kasalliklar_soni = st.number_input("Nechta kasallik nomini kiritasiz?", 1, 10, 1)
     kasalliklar_nomlari = [st.text_input(f"{i+1}-Kasallik nomini kiriting", key=f'kasallik_{i}') 
-                          for i in range(kasalliklar_soni)]
-
+                        for i in range(kasalliklar_soni)]
+    
     # Kasalliklar uchun simptomlar guruhi va simptomlarni kiritish
     symptom_groups = []
     symptoms = {}
 
     for i, kasallik in enumerate(kasalliklar_nomlari):
         if kasallik:
-            st.markdown(f"### {kasallik} uchun simptomlar guruhi kiritish")
-            num_groups = st.number_input(f"{kasallik} uchun simptomlar guruhi sonini kiriting", 
-                                       0, 5, 1, key=f"num_groups_{i}")
-            groups = []
-            for j in range(num_groups):
-                group_name = st.text_input(f"{j+1}-Simptomlar guruhi nomini kiriting", 
-                                         key=f"group_{i}_{j}")
-                if group_name:
-                    groups.append(group_name)
-                    symptoms[group_name] = st.text_area(
-                        f"{group_name} uchun simptomlarni kiriting (vergul bilan ajrating)", 
-                        key=f"symptoms_{i}_{j}")
-            symptom_groups.append((kasallik, groups))
+            with st.expander(f"{kasallik} uchun simptomlar guruhi va simptomlarni kiritish"):
+                st.markdown(f"### {kasallik} uchun simptomlar guruhi kiritish")
+                num_groups = st.number_input(f"{kasallik} uchun simptomlar guruhi sonini kiriting", 
+                                        0, 5, 1, key=f"num_groups_{i}")
+                groups = []
+                for j in range(num_groups):
+                    group_name = st.text_input(f"{j+1}-Simptomlar guruhi nomini kiriting", 
+                                            key=f"group_{i}_{j}")
+                    if group_name:
+                        groups.append(group_name)
+                        symptoms[group_name] = st.text_area(
+                            f"{group_name} uchun simptomlarni kiriting (vergul bilan ajrating)", 
+                            key=f"symptoms_{i}_{j}")
+                
+                symptom_groups.append((kasallik, groups))
 
     # Simptomlarga mos ravishda 0 yoki 1 raqamlarini kiritish
     symptom_matrix = []
 
     for kasallik, groups in symptom_groups:
-        for group in groups:
-            symptoms_text = symptoms[group]
-            symptom_list = [symptom.strip() for symptom in symptoms_text.split(',') if symptom.strip()]
-            
-            for symptom in symptom_list:
-                # Checkbox qiymatini tekshirish
-                value = st.checkbox(
-                    f"Kasallik: {kasallik} | Guruh: {group} | Simptom: {symptom} mavjudmi?",
-                    key=f"value_{kasallik}_{group}_{symptom}")
+        with st.expander(f"{kasallik} uchun simptomlar va checkboxlar"):
+            for group in groups:
+                symptoms_text = symptoms[group]
+                symptom_list = [symptom.strip() for symptom in symptoms_text.split(',') if symptom.strip()]
                 
-                # Agar checkbox tanlangan bo'lsa, qiymat 1, aks holda 0 bo'ladi
-                symptom_matrix.append([kasallik, group, symptom, 1 if value else 0])
+                for symptom in symptom_list:
+                    # Checkbox qiymatini tekshirish
+                    value = st.checkbox(
+                        f"Kasallik: {kasallik} | Guruh: {group} | Simptom: {symptom} mavjudmi?",
+                        key=f"value_{kasallik}_{group}_{symptom}")
+                    
+                    # Agar checkbox tanlangan bo'lsa, qiymat 1, aks holda 0 bo'ladi
+                    symptom_matrix.append([kasallik, group, symptom, 1 if value else 0])
 
     # Saqlash tugmasi
     saqlash = st.button("Saqlash", disabled=not any(kasalliklar_nomlari), icon='💡')
@@ -408,7 +457,6 @@ with tabs[0]:
         except sqlite3.Error as e:
             st.error(f"Xatolik yuz berdi: {str(e)}")
 
-
 with tabs[1]:
     edit_tab()
 
@@ -425,7 +473,7 @@ def export_to_excel():
     cell_font = Font(name='Times New Roman', size=14)
     cell_alignment = Alignment(horizontal='center', vertical='center')
     border = Border(left=Side(style='thin'), right=Side(style='thin'),
-                   top=Side(style='thin'), bottom=Side(style='thin'))
+                top=Side(style='thin'), bottom=Side(style='thin'))
 
     # Sarlavhalar
     headers = ['Simptomlar Guruhi', 'Simptom'] + [d[1] for d in diseases]
@@ -457,27 +505,44 @@ def export_to_excel():
             cell.border = border
         
         current_row += 1
-
     # Ustunlarni kengaytirish
     for column in worksheet.columns:
         max_length = max(len(str(cell.value)) for cell in column)
         worksheet.column_dimensions[column[0].column_letter].width = max_length + 4
-
     return workbook
 
-
-
 with tabs[2]:
+    st.markdown("## :rainbow[Ma'lumotlar bazasidagi ma'lumotlar]")
+    # Ma'lumotlarni olish
+    diseases, groups, symptoms, values = get_all_data()
+    tabDiseases, tabGroups, tabSymptom, tabValues = st.tabs(['Kasalliklar', 'Simptom guruhlari', 'Simptomlar', 'Qiymatlar'])
+    
+    with tabDiseases:
+        # Kasalliklar jadvalini ko'rsatish
+        st.data_editor(pd.DataFrame(diseases, columns=["T/R", "Kasallik nomi"]))
+    with tabGroups:
+    # Simptom guruhlari jadvalini ko'rsatish
+        st.data_editor(pd.DataFrame(groups, columns=["ID", "Kasallik ID", "Guruh nomi", "Kasallik nomi"]))
+
+    with tabSymptom:
+    # Simptomlar jadvalini ko'rsatish
+        st.data_editor(pd.DataFrame(symptoms, columns=["ID", "Guruh ID", "Simptom nomi", "Guruh nomi"]))
+
+    with tabValues:
+    # Qiymatlar jadvalini ko'rsatish
+        st.data_editor(pd.DataFrame(values, columns=["ID", "Kasallik ID", "Simptom ID", "Qiymat", "Kasallik nomi", "Simptom nomi", "Guruh nomi"]))
+    
+    # Excelga eksport qilish funksiyasini chaqirish
     workbook = export_to_excel()
     excel_file = BytesIO()
     workbook.save(excel_file)
     excel_file.seek(0)
     st.download_button(
-        label="Excelga yuklab olish",
+        label="Jadval ko'rinishida yuklash",
         data=excel_file,
         file_name="kasalliklar_va_simptomlar.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True,
+        icon='💾',
+        type='primary'
     )
-
-
-    
