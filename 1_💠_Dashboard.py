@@ -3,7 +3,6 @@ import sqlite3
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 import logging
-import os
 from datetime import datetime, timedelta
 
 # Logging konfiguratsiyasi
