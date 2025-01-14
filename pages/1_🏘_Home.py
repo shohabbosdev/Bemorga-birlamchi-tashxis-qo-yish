@@ -5,6 +5,7 @@ from io import BytesIO
 import openpyxl
 from openpyxl.styles import Font, Alignment, Border, Side
 from contextlib import contextmanager
+from streamlit_tags import st_tags
 
 # Thread-safe database connection management
 @contextmanager
@@ -363,99 +364,110 @@ def edit_tab():
 st.markdown("# 💉:rainbow[Kasalliklar bilan ishlash oynasi]")
 tabs = st.tabs(["Ma'lumotlarni kiritish", "Ma'lumotlarni tahrirlash", "Excelga eksport qilish"])
 
-with tabs[0]:
-    st.markdown("## :rainbow[Kasalliklar va Simptomlarni kiritish]") 
-    kasalliklar_soni = st.number_input("Nechta kasallik nomini kiritasiz?", 1, 10, 1)
-    kasalliklar_nomlari = [st.text_input(f"{i+1}-Kasallik nomini kiriting", key=f'kasallik_{i}') 
-                        for i in range(kasalliklar_soni)]
+with tabs[0]:  
+    # 'st_tags' orqali kasallik nomlarini kiritish  
+    kasallik_names = st_tags(  
+        label='### :rainbow[Kasallik nomlarini kiriting...]',  
+        text="Har bir ma'lumot ENTER ni bosish orqali kiritiladi",  
+        value=[], 
+        suggestions=['Ревматоидный артрит', 'Подагрический артрит', 'Реактивный артрит'], 
+        key="aljnddas"  
+    )  
     
-    # Kasalliklar uchun simptomlar guruhi va simptomlarni kiritish
-    symptom_groups = []
-    symptoms = {}
+    if kasallik_names:  
+        # Kasalliklar uchun simptomlar guruhi va simptomlarni kiritish  
+        symptom_groups = []  
+        symptoms = {}  
 
-    for i, kasallik in enumerate(kasalliklar_nomlari):
-        if kasallik:
-            with st.expander(f"{kasallik} uchun simptomlar guruhi va simptomlarni kiritish"):
-                st.markdown(f"### {kasallik} uchun simptomlar guruhi kiritish")
-                num_groups = st.number_input(f"{kasallik} uchun simptomlar guruhi sonini kiriting", 
-                                        0, 5, 1, key=f"num_groups_{i}")
-                groups = []
-                for j in range(num_groups):
-                    group_name = st.text_input(f"{j+1}-Simptomlar guruhi nomini kiriting", 
-                                            key=f"group_{i}_{j}")
-                    if group_name:
-                        groups.append(group_name)
-                        symptoms[group_name] = st.text_area(
-                            f"{group_name} uchun simptomlarni kiriting (vergul bilan ajrating)", 
-                            key=f"symptoms_{i}_{j}")
-                
-                symptom_groups.append((kasallik, groups))
-
-    # Simptomlarga mos ravishda 0 yoki 1 raqamlarini kiritish
-    symptom_matrix = []
-
-    for kasallik, groups in symptom_groups:
-        with st.expander(f"{kasallik} uchun simptomlar va checkboxlar"):
-            for group in groups:
-                symptoms_text = symptoms[group]
-                symptom_list = [symptom.strip() for symptom in symptoms_text.split(',') if symptom.strip()]
-                
-                for symptom in symptom_list:
-                    # Checkbox qiymatini tekshirish
-                    value = st.checkbox(
-                        f"Kasallik: {kasallik} | Guruh: {group} | Simptom: {symptom} mavjudmi?",
-                        key=f"value_{kasallik}_{group}_{symptom}")
+        for i, kasallik in enumerate(kasallik_names):  
+            if kasallik:  
+                with st.expander(f"{kasallik} uchun simptomlar guruhi va simptomlarni kiritish"):  
+                    # Simptomlar guruhi kiritish uchun st_tags
+                    group_names = st_tags(  
+                        label=f'#### :rainbow[{kasallik}] uchun simptomlar guruhi nomlarini kiriting',  
+                        text="Har bir ma'lumot ENTER ni bosish orqali kiritiladi",  
+                        value=[],  
+                        key=f"group_tags_{i}"  
+                    )
                     
-                    # Agar checkbox tanlangan bo'lsa, qiymat 1, aks holda 0 bo'ladi
-                    symptom_matrix.append([kasallik, group, symptom, 1 if value else 0])
+                    for group_name in group_names:  
+                        if group_name:  
+                            symptoms[group_name] = st_tags(  
+                                label=f"{group_name} uchun simptomlarni kiriting (vergul bilan ajrating)",  
+                                text="Simptomlarni kiriting",  
+                                value=[],  # Make sure this is defined correctly
+                                key=f"symptoms_{i}_{group_name}"
+                            )  
 
-    # Saqlash tugmasi
-    saqlash = st.button("Saqlash", disabled=not any(kasalliklar_nomlari), icon='💡')
+                    symptom_groups.append((kasallik, group_names))  
 
-    if saqlash:
-        try:
-            with get_connection() as conn:
-                cursor = conn.cursor()
+        # Simptomlarga mos ravishda 0 yoki 1 raqamlarini kiritish  
+        symptom_matrix = []  
 
-                # Simptomlar va kasalliklarga mos qiymatlarni bazaga saqlash
-                for record in symptom_matrix:
-                    kasallik, group, symptom, value = record
-                    # Kasallikni olish yoki yaratish
-                    cursor.execute("SELECT id FROM diseases WHERE name=?", (kasallik,))
-                    disease_record = cursor.fetchone()
-                    if not disease_record:
-                        cursor.execute("INSERT INTO diseases (name) VALUES (?)", (kasallik,))
-                        conn.commit()
-                        disease_id = cursor.lastrowid
-                    else:
-                        disease_id = disease_record[0]
-                    
-                    # Simptomni olish yoki yaratish
-                    cursor.execute("SELECT id FROM symptom_groups WHERE disease_id=? AND group_name=?", (disease_id, group))
-                    group_record = cursor.fetchone()
-                    if not group_record:
-                        cursor.execute("INSERT INTO symptom_groups (disease_id, group_name) VALUES (?, ?)", (disease_id, group))
-                        conn.commit()
-                        group_id = cursor.lastrowid
-                    else:
-                        group_id = group_record[0]
+        for kasallik, groups in symptom_groups:  
+            with st.expander(f"{kasallik} uchun simptomlar va checkboxlar"):  
+                for group in groups:  
+                    symptoms_text = symptoms.get(group, [])
+                    symptom_list = symptoms_text  # `st_tags` natijasi ro'yxat
 
-                    cursor.execute("SELECT id FROM symptoms WHERE group_id=? AND symptom_name=?", (group_id, symptom))
-                    symptom_record = cursor.fetchone()
-                    if not symptom_record:
-                        cursor.execute("INSERT INTO symptoms (group_id, symptom_name) VALUES (?, ?)", (group_id, symptom))
-                        conn.commit()
-                        symptom_id = cursor.lastrowid
-                    else:
-                        symptom_id = symptom_record[0]
+                    for symptom in symptom_list:  
+                        # Checkbox qiymatini tekshirish  
+                        value = st.checkbox(  
+                            f"Kasallik: {kasallik} | Guruh: {group} | Simptom: {symptom} mavjudmi?",  
+                            key=f"value_{kasallik}_{group}_{symptom}")  
 
-                    # Qiymatni saqlash (1 yoki 0)
-                    cursor.execute("""INSERT INTO disease_symptoms (disease_id, symptom_id, value)
-                                    VALUES (?, ?, ?)""", (disease_id, symptom_id, value))
-                    conn.commit()
-            st.success("✅ Kasalliklar va simptomlar muvaffaqiyatli saqlandi!")
-        except sqlite3.Error as e:
-            st.error(f"Xatolik yuz berdi: {str(e)}")
+                        # Agar checkbox tanlangan bo'lsa, qiymat 1, aks holda 0 bo'ladi  
+                        symptom_matrix.append([kasallik, group, symptom, 1 if value else 0])  
+
+        # Saqlash tugmasi  
+        saqlash = st.button("Saqlash", disabled=not any(kasallik_names), icon='💡')  
+
+        if saqlash:  
+            try:  
+                with get_connection() as conn:  
+                    cursor = conn.cursor()  
+
+                    # Simptomlar va kasalliklarga mos qiymatlarni bazaga saqlash  
+                    for record in symptom_matrix:  
+                        kasallik, group, symptom, value = record  
+
+                        # Kasallikni olish yoki yaratish  
+                        cursor.execute("SELECT id FROM diseases WHERE name=?", (kasallik,))  
+                        disease_record = cursor.fetchone()  
+                        if not disease_record:  
+                            cursor.execute("INSERT INTO diseases (name) VALUES (?)", (kasallik,))  
+                            conn.commit()  
+                            disease_id = cursor.lastrowid  
+                        else:  
+                            disease_id = disease_record[0]  
+
+                        # Simptomni olish yoki yaratish  
+                        cursor.execute("SELECT id FROM symptom_groups WHERE disease_id=? AND group_name=?", (disease_id, group))  
+                        group_record = cursor.fetchone()  
+                        if not group_record:  
+                            cursor.execute("INSERT INTO symptom_groups (disease_id, group_name) VALUES (?, ?)", (disease_id, group))  
+                            conn.commit()  
+                            group_id = cursor.lastrowid  
+                        else:  
+                            group_id = group_record[0]  
+
+                        cursor.execute("SELECT id FROM symptoms WHERE group_id=? AND symptom_name=?", (group_id, symptom))  
+                        symptom_record = cursor.fetchone()  
+                        if not symptom_record:  
+                            cursor.execute("INSERT INTO symptoms (group_id, symptom_name) VALUES (?, ?)", (group_id, symptom))  
+                            conn.commit()  
+                            symptom_id = cursor.lastrowid  
+                        else:  
+                            symptom_id = symptom_record[0]  
+
+                        # Qiymatni saqlash (1 yoki 0)  
+                        cursor.execute("""INSERT INTO disease_symptoms (disease_id, symptom_id, value)  
+                                          VALUES (?, ?, ?)""", (disease_id, symptom_id, value))  
+                        conn.commit()  
+
+                st.success("✅ Kasalliklar va simptomlar muvaffaqiyatli saqlandi!")  
+            except sqlite3.Error as e:  
+                st.error(f"Xatolik yuz berdi: {str(e)}")
 
 with tabs[1]:
     edit_tab()

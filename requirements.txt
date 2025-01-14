@@ -4,3 +4,4 @@ bcrypt
 python-dotenv
 pytest
 openpyxl
+streamlit-tags

@@ -116,6 +116,7 @@ class AuthenticationManager:
             logger.error(f"Autentifikatsiya paytida ma'lumotlar bazasida xatolik yuz berdi: {e}")
             return None
 
+
 def main():
     # Initialize database directory
     DATABASE_DIR.mkdir(exist_ok=True)
@@ -126,60 +127,60 @@ def main():
         return
 
     auth_manager = AuthenticationManager()
-    
     # Show UI
-    col1, col2, col3 = st.columns([1, 9, 1])
-    with col2:
-        st.title("💥 Kirish & Ro'yxatdan o'tish")
-        selected_role = st.selectbox("Tizimdagi rolingiz", list(USER_TYPES.keys()))
-        input_login = st.text_input("Loginingizni kiriting")
-        input_password = st.text_input("Parolingizni kiriting", type='password')
+    
+    st.title("💥 Kirish & Ro'yxatdan o'tish")
+    selected_role = st.selectbox("Tizimdagi rolingiz", list(USER_TYPES.keys()))
+    input_login = st.text_input("Loginingizni kiriting")
+    input_password = st.text_input("Parolingizni kiriting", type='password')
 
-        ccol1, ccol2 = st.columns(2)
-        login_button = ccol1.button('Kirish', use_container_width=True, type='primary')
-        register_button = ccol2.button("Ro'yxatdan o'tish", use_container_width=True, 
-                                     type='secondary', disabled=(selected_role == 'Administrator'))
+    ccol1, ccol2 = st.columns(2)
+    login_button = ccol1.button('Kirish', use_container_width=True, type='primary')
+    register_button = ccol2.button("Ro'yxatdan o'tish", use_container_width=True, 
+                                    type='secondary', disabled=(selected_role == 'Administrator'))
 
-        if login_button and input_login and input_password:
-            user_data = auth_manager.authenticate_user(input_login, input_password, selected_role)
-            if user_data:
-                SessionManager.create_session(user_data)
-                st.success(f"Xush kelibsiz, {user_data['login']}!")
-                st.switch_page("pages/1_🏘_Home.py")
-            else:
-                st.error("Login yoki parol noto'g'ri")
+    if login_button and input_login and input_password:
+        user_data = auth_manager.authenticate_user(input_login, input_password, selected_role)
+        if user_data:
+            SessionManager.create_session(user_data)
+            st.success(f"Xush kelibsiz, {user_data['login']}!")
+            st.switch_page("pages/1_🏘_Home.py")
+        else:
+            st.error("Login yoki parol noto'g'ri")
 
-        if register_button and selected_role == 'Doktor':
-            with st.form("registration_form"):
-                st.write("Ro'yxatdan o'tish")
-                reg_login = st.text_input("Login")
-                reg_password = st.text_input("Parol", type="password")
-                reg_password_confirm = st.text_input("Parolni tasdiqlang", type="password")
+    if register_button and selected_role == 'Doktor':
+        register()
+@st.dialog("®️o'yxatdan o'tish", width='large')
+def register():
+    with st.form("registration_form"):
+            reg_login = st.text_input("Login")
+            reg_password = st.text_input("Parol", type="password")
+            reg_password_confirm = st.text_input("Parolni tasdiqlang", type="password")
 
-                submitted = st.form_submit_button("Ro'yxatdan o'tish")
+            submitted = st.form_submit_button("Ro'yxatdan o'tish", use_container_width=True, type='primary', icon='®️')
 
-                if submitted:
-                    if not reg_login or not reg_password:
-                        st.error("Barcha maydonlarni to'ldiring")
-                        return
-                        
-                    if reg_password != reg_password_confirm:
-                        st.error("Parollar mos kelmadi")
-                        return
+            if submitted:
+                if not reg_login or not reg_password:
+                    st.error("Barcha maydonlarni to'ldiring")
+                    return
                     
-                    try:
-                        with DatabaseManager(DATABASE_DIR / 'doctors.db') as conn:
-                            conn.execute(
-                                "INSERT INTO DOCTORS (login, parol) VALUES (?, ?)",
-                                (reg_login, reg_password)
-                            )
-                            conn.commit()
-                            st.success("Ro'yxatdan o'tish muvaffaqiyatli amalga oshirildi!")
-                    except sqlite3.IntegrityError:
-                        st.error("Bunday login mavjud")
-                    except Exception as e:
-                        logger.error(f"Registratsiya xatoligi: {e}")
-                        st.error("Ro'yxatdan o'tishda xatolik yuz berdi")
+                if reg_password != reg_password_confirm:
+                    st.error("Parollar mos kelmadi")
+                    return
+                
+                try:
+                    with DatabaseManager(DATABASE_DIR / 'doctors.db') as conn:
+                        conn.execute(
+                            "INSERT INTO DOCTORS (login, parol) VALUES (?, ?)",
+                            (reg_login, reg_password)
+                        )
+                        conn.commit()
+                        st.success("Ro'yxatdan o'tish muvaffaqiyatli amalga oshirildi!")
+                except sqlite3.IntegrityError:
+                    st.error("Bunday login mavjud")
+                except Exception as e:
+                    logger.error(f"Registratsiya xatoligi: {e}")
+                    st.error("Ro'yxatdan o'tishda xatolik yuz berdi")
 
 if __name__ == "__main__":
     main()
