@@ -230,7 +230,7 @@ def save_symptom_value(conn, disease_id, symptom_id, value):
 
 # Tahrirlash oynasi
 def edit_tab():
-    st.markdown("## :rainbow[Ma'lumotlarni tahrirlash]")
+    st.markdown("## Ma'lumotlarni tahrirlash")
 
     edit_type = st.selectbox("Nimani tahrirlash kerak?", 
                             ["Kasalliklar", "Simptom guruhlari", "Simptomlar", "Qiymatlar"])
@@ -361,13 +361,13 @@ def edit_tab():
 
 
 # Asosiy qism
-st.markdown("# 💉:rainbow[Kasalliklar bilan ishlash oynasi]")
+st.markdown("# 💉Kasalliklar bilan ishlash oynasi")
 tabs = st.tabs(["Ma'lumotlarni kiritish", "Ma'lumotlarni tahrirlash", "Excelga eksport qilish"])
 
 with tabs[0]:  
     # 'st_tags' orqali kasallik nomlarini kiritish  
     kasallik_names = st_tags(  
-        label='### :rainbow[Kasallik nomlarini kiriting...]',  
+        label='### Kasallik nomlarini kiriting...',  
         text="Har bir ma'lumot ENTER ni bosish orqali kiritiladi",  
         value=[], 
         suggestions=['Ревматоидный артрит', 'Подагрический артрит', 'Реактивный артрит'], 
@@ -384,7 +384,7 @@ with tabs[0]:
                 with st.expander(f"{kasallik} uchun simptomlar guruhi va simptomlarni kiritish"):  
                     # Simptomlar guruhi kiritish uchun st_tags
                     group_names = st_tags(  
-                        label=f'#### :rainbow[{kasallik}] uchun simptomlar guruhi nomlarini kiriting',  
+                        label=f'#### {kasallik} uchun simptomlar guruhi nomlarini kiriting',  
                         text="Har bir ma'lumot ENTER ni bosish orqali kiritiladi",  
                         value=[],  
                         key=f"group_tags_{i}"  
@@ -524,7 +524,7 @@ def export_to_excel():
     return workbook
 
 with tabs[2]:
-    st.markdown("## :rainbow[Ma'lumotlar bazasidagi ma'lumotlar]")
+    st.markdown("## Ma'lumotlar bazasidagi ma'lumotlar")
     # Ma'lumotlarni olish
     diseases, groups, symptoms, values = get_all_data()
     tabDiseases, tabGroups, tabSymptom, tabValues = st.tabs(['Kasalliklar', 'Simptom guruhlari', 'Simptomlar', 'Qiymatlar'])
